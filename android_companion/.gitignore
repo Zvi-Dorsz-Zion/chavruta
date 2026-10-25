@@ -1,0 +1,18 @@
+# נוצר ב-CI על ידי `flutter create` ו-`flutter build`; בריפו רק מה שכתבנו.
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+build/
+pubspec.lock
+test/widget_test.dart
+*.iml
+android/*
+!android/app/
+android/app/*
+!android/app/src/
+android/app/src/*
+!android/app/src/main/
+android/app/src/main/*
+!android/app/src/main/AndroidManifest.xml
+!android/app/src/main/kotlin/
