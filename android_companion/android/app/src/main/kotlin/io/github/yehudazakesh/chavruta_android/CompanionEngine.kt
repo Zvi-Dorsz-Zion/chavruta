@@ -54,6 +54,7 @@ object CompanionEngine {
                     "requestBatteryExempt" -> {
                         result.success(requestBatteryExempt(app))
                     }
+                    "openUri" -> result.success(openUri(app, call.argument<String>("uri") ?: ""))
                     else -> result.notImplemented()
                 }
             }
@@ -74,6 +75,20 @@ object CompanionEngine {
             if (!named.isNullOrBlank()) return named
         }
         return "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+    }
+
+    /**
+     * פותח קישור `otzaria://` — כך המתאם מבקש מאוצריא להתקין את התוסף.
+     * `false` = אין אפליקציה שמטפלת בקישור, כלומר אוצריא אינה מותקנת.
+     */
+    private fun openUri(context: Context, uri: String): Boolean = try {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        true
+    } catch (e: Exception) {
+        false
     }
 
     private fun isBatteryExempt(context: Context): Boolean {

@@ -45,4 +45,8 @@ class Native {
   static Future<void> requestBatteryExempt() async {
     await _channel.invokeMethod<Object?>('requestBatteryExempt');
   }
+
+  /// פותח קישור (`otzaria://...`). `false` = אין מי שמטפל בו.
+  static Future<bool> openUri(String uri) async =>
+      (await _channel.invokeMethod<bool>('openUri', {'uri': uri})) ?? false;
 }

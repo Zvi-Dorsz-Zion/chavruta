@@ -52,11 +52,22 @@ jobs:
         working-directory: android_companion
         run: |
           flutter pub get
-          flutter analyze --no-fatal-infos lib
+          flutter analyze --no-fatal-infos lib test/plugin_install_test.dart
 
+      # רק הבדיקות שלנו: `flutter create` מוסיף test/widget_test.dart של
+      # התבנית, שאינו מתקמפל מול האפליקציה הזאת.
+      - name: בדיקות
+        working-directory: android_companion
+        run: flutter test test/plugin_install_test.dart
+
+      # גרסת האפליקציה היא גרסת המתאם — release.yml מקדם אותה, וכפתור
+      # התקנת התוסף מוריד את התוסף מאותה גרסה.
       - name: בנייה
         working-directory: android_companion
-        run: flutter build apk --release --build-number ${{ github.run_number }}
+        run: |
+          VERSION=$(grep -oP "companionVersion = '\K[^']+" ../companion/lib/version.dart)
+          echo "גרסה: $VERSION"
+          flutter build apk --release --build-name "$VERSION" --build-number ${{ github.run_number }}
 
       # מפתח קבוע במקום מפתח debug שנוצר מחדש בכל מכונה: כך כל בנייה
       # מותקנת מעל הקודמת בלי להסיר אותה. זה מפתח לבדיקות בלבד, והסיסמה

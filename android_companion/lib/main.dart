@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:chavruta_companion/version.dart';
+
 import 'companion_runner.dart';
 import 'native.dart';
+import 'plugin_install.dart';
 
 void main() {
   final runner = CompanionRunner();
@@ -108,6 +111,7 @@ class _StatusPageState extends State<StatusPage> {
             children: [
               _statusCard(context, runner),
               if (snap != null) _linkCard(context, snap),
+              _pluginCard(context, snap),
               _backgroundCard(context),
               _howToCard(context),
               _logCard(context, runner),
@@ -223,6 +227,47 @@ class _StatusPageState extends State<StatusPage> {
           '${snap['datagramsRejected']} נדחו '
           '(${snap['datagramsClockRejected']} בגלל פער שעונים).',
           style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  /// המקבילה של "התקנת תוסף החברותא באוצריא" במתקין של המחשב: קישור
+  /// `otzaria://plugin/install` שמבקש מאוצריא להוריד את התוסף מאותה גרסה.
+  Widget _pluginCard(BuildContext context, Map<String, Object?>? snap) {
+    final engine = snap?['engine'];
+    final connected = engine is Map && engine['owner'] != null;
+    Future<void> install() async {
+      final opened = await Native.openUri(pluginInstallUri());
+      if (opened || !context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('אוצריא אינה מותקנת בטלפון הזה')),
+      );
+    }
+
+    return _Section(
+      title: 'תוסף החברותא באוצריא',
+      children: [
+        Text(
+          connected
+              ? 'התוסף מחובר. אפשר לעדכן אותו לגרסה $companionVersion '
+                    'של המתאם.'
+              : 'המתאם עובד עם תוסף החברותא שבתוך אוצריא. אם התוסף עוד לא '
+                    'מותקן, או שהוא בגרסה ישנה — אוצריא תוריד אותו ותבקש '
+                    'לאשר את ההרשאות שלו. צריך חיבור לאינטרנט להורדה.',
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: connected
+              ? OutlinedButton(
+                  onPressed: install,
+                  child: Text('עדכון התוסף ($companionVersion)'),
+                )
+              : FilledButton(
+                  onPressed: install,
+                  child: const Text('התקנת התוסף באוצריא'),
+                ),
         ),
       ],
     );
