@@ -60,8 +60,7 @@ jobs:
         working-directory: android_companion
         run: flutter test test/plugin_install_test.dart
 
-      # גרסת האפליקציה היא גרסת המתאם — release.yml מקדם אותה, וכפתור
-      # התקנת התוסף מוריד את התוסף מאותה גרסה.
+      # גרסת האפליקציה היא גרסת המתאם, ש-release.yml מקדם.
       - name: בנייה
         working-directory: android_companion
         run: |

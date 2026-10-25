@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:chavruta_companion/version.dart';
-
 import 'companion_runner.dart';
 import 'native.dart';
 import 'plugin_install.dart';
@@ -233,7 +231,7 @@ class _StatusPageState extends State<StatusPage> {
   }
 
   /// המקבילה של "התקנת תוסף החברותא באוצריא" במתקין של המחשב: קישור
-  /// `otzaria://plugin/install` שמבקש מאוצריא להוריד את התוסף מאותה גרסה.
+  /// `otzaria://plugin/install` שמבקש מאוצריא להוריד את התוסף מהחנות.
   Widget _pluginCard(BuildContext context, Map<String, Object?>? snap) {
     final engine = snap?['engine'];
     final connected = engine is Map && engine['owner'] != null;
@@ -250,11 +248,15 @@ class _StatusPageState extends State<StatusPage> {
       children: [
         Text(
           connected
-              ? 'התוסף מחובר. אפשר לעדכן אותו לגרסה $companionVersion '
-                    'של המתאם.'
-              : 'המתאם עובד עם תוסף החברותא שבתוך אוצריא. אם התוסף עוד לא '
-                    'מותקן, או שהוא בגרסה ישנה — אוצריא תוריד אותו ותבקש '
-                    'לאשר את ההרשאות שלו. צריך חיבור לאינטרנט להורדה.',
+              ? 'התוסף מחובר. הכפתור מוריד מחנות התוספים של אוצריא את הגרסה '
+                    'העדכנית שמתאימה לאוצריא שלכם.'
+              : 'המתאם עובד עם תוסף החברותא שבתוך אוצריא. הכפתור פותח את '
+                    'אוצריא, והיא מורידה את התוסף מחנות התוספים הרשמית שלה '
+                    'ומבקשת לאשר את ההרשאות שלו.',
+        ),
+        Text(
+          'ההורדה דורשת חיבור לאינטרנט. הסנכרון עצמו — לא.',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
         Align(
@@ -262,11 +264,11 @@ class _StatusPageState extends State<StatusPage> {
           child: connected
               ? OutlinedButton(
                   onPressed: install,
-                  child: Text('עדכון התוסף ($companionVersion)'),
+                  child: const Text('הורדת עדכון לתוסף מהחנות'),
                 )
               : FilledButton(
                   onPressed: install,
-                  child: const Text('התקנת התוסף באוצריא'),
+                  child: const Text('הורדה והתקנה של התוסף מהחנות'),
                 ),
         ),
       ],
