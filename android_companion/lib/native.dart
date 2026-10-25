@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 /// הגשר לצד ה-Kotlin (`CompanionEngine.kt`): תיקיית הנתונים, שם המכשיר,
-/// ושירות החזית שמחזיק את המתאם חי כשאוצריא בחזית.
+/// שירות החזית, העלייה עם הטלפון והפטור מחיסכון בסוללה.
 class Native {
   static const _channel = MethodChannel('chavruta/native');
 
@@ -19,5 +19,30 @@ class Native {
 
   static Future<void> stopService() async {
     await _channel.invokeMethod<Object?>('stopService');
+  }
+
+  /// שורת המצב בהתראה הקבועה.
+  static Future<void> setStatus(String text) async {
+    await _channel.invokeMethod<Object?>('setStatus', {'text': text});
+  }
+
+  /// האם התהליך הוקם בעלייה עם הטלפון. נכון פעם אחת בלבד.
+  static Future<bool> launchedAtBoot() async =>
+      (await _channel.invokeMethod<bool>('launchedAtBoot')) ?? false;
+
+  static Future<bool> getStartOnBoot() async =>
+      (await _channel.invokeMethod<bool>('getStartOnBoot')) ?? true;
+
+  static Future<bool> setStartOnBoot(bool enabled) async =>
+      (await _channel.invokeMethod<bool>('setStartOnBoot', {
+        'enabled': enabled,
+      })) ??
+      enabled;
+
+  static Future<bool> isBatteryExempt() async =>
+      (await _channel.invokeMethod<bool>('isBatteryExempt')) ?? true;
+
+  static Future<void> requestBatteryExempt() async {
+    await _channel.invokeMethod<Object?>('requestBatteryExempt');
   }
 }

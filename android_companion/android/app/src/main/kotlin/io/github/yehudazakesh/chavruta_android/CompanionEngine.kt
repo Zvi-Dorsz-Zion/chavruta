@@ -1,7 +1,10 @@
 package io.github.yehudazakesh.chavruta_android
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
@@ -12,8 +15,8 @@ import io.flutter.plugin.common.MethodChannel
  * מנוע ה-Flutter שמריץ את המתאם, ברמת התהליך ולא ברמת המסך.
  *
  * מנוע שנוצר בתוך ה-Activity נהרס איתו, וה-Dart שבו — כלומר המתאם כולו —
- * נעצר. כאן הוא נוצר פעם אחת ונשמר במטמון, והמסך רק מתחבר אליו. כל עוד
- * [CompanionService] רץ, התהליך חי והמתאם ממשיך גם בלי מסך.
+ * נעצר. כאן הוא נוצר פעם אחת ונשמר במטמון; המסך רק מתחבר אליו, ו-
+ * [CompanionService] יכול להקים אותו גם בלי מסך בכלל.
  */
 object CompanionEngine {
     const val ID = "companion"
@@ -36,6 +39,20 @@ object CompanionEngine {
                         CompanionService.stop(app)
                         result.success(true)
                     }
+                    "setStatus" -> {
+                        CompanionService.setStatus(call.argument<String>("text") ?: "")
+                        result.success(true)
+                    }
+                    "launchedAtBoot" -> result.success(Prefs.takeLaunchedAtBoot())
+                    "getStartOnBoot" -> result.success(Prefs.startOnBoot(app))
+                    "setStartOnBoot" -> {
+                        Prefs.setStartOnBoot(app, call.argument<Boolean>("enabled") == true)
+                        result.success(Prefs.startOnBoot(app))
+                    }
+                    "isBatteryExempt" -> result.success(isBatteryExempt(app))
+                    "requestBatteryExempt" -> {
+                        result.success(requestBatteryExempt(app))
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -56,5 +73,30 @@ object CompanionEngine {
             if (!named.isNullOrBlank()) return named
         }
         return "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+    }
+
+    private fun isBatteryExempt(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 23) return true
+        val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return power.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    /**
+     * מבקש מהמשתמש לפטור את המתאם מחיסכון בסוללה — חלון מערכת שהוא מאשר
+     * בעצמו. בלי הפטור חלק מהטלפונים עוצרים את המתאם ברקע גם עם שירות חזית.
+     */
+    private fun requestBatteryExempt(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 23) return false
+        return try {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:${context.packageName}")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 }

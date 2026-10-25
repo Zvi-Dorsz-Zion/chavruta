@@ -13,11 +13,15 @@ import android.os.Build
 import android.os.IBinder
 
 /**
- * שירות חזית שאינו עושה דבר מלבד להחזיק את התהליך חי.
+ * שירות החזית שמחזיק את המתאם חי — **והוא גם הבעלים של המנוע**.
  *
  * כשאוצריא בחזית, אנדרואיד (14 ומעלה) מקפיא תוך שניות אפליקציה שירדה
- * לרקע — והמתאם מפסיק לשמוע את המחשב ולענות לתוסף. שירות חזית עם התראה
- * קבועה הוא הדרך המוצהרת לומר למערכת שהעבודה הזאת נמשכת.
+ * לרקע; שירות חזית עם התראה קבועה הוא הדרך המוצהרת לומר שהעבודה נמשכת.
+ *
+ * בהרבה טלפונים החלקת האפליקציה מרשימת האחרונות הורגת את **כל** התהליך,
+ * גם כשיש שירות חזית. לכן השירות מוגדר `START_STICKY` ומקים בעצמו את
+ * מנוע ה-Flutter ב-[onCreate]: כשהמערכת מקימה אותו מחדש, המתאם עולה איתו
+ * בלי שאיש פתח את המסך. כך גם בעלייה עם הטלפון ([BootReceiver]).
  */
 class CompanionService : Service() {
     private var multicastLock: WifiManager.MulticastLock? = null
@@ -26,33 +30,43 @@ class CompanionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            val notification = buildNotification(status)
+            if (Build.VERSION.SDK_INT >= 29) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            // המערכת אינה מתירה כאן שירות חזית (הקמה מחדש מהרקע בגרסאות
+            // מסוימות). מתאם בלי שירות חזית היה מוקפא בכל מקרה, ולכן עדיף
+            // לא לעלות בכלל מאשר לעלות ולשתוק.
+            stopSelf()
+            return
         }
+        instance = this
         val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager?
         multicastLock = wifi?.createMulticastLock("chavruta")?.apply {
             setReferenceCounted(false)
             acquire()
         }
+        CompanionEngine.ensure(applicationContext)
     }
 
-    // אין טעם להקים את השירות מחדש לבד: בלי המנוע אין מתאם שהוא מחזיק.
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         multicastLock?.let { if (it.isHeld) it.release() }
         multicastLock = null
         super.onDestroy()
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(text: String): Notification {
         val open = PendingIntent.getActivity(
             this,
             0,
@@ -66,7 +80,7 @@ class CompanionService : Service() {
                 NotificationChannel(
                     CHANNEL_ID,
                     "מתאם חברותא",
-                    NotificationManager.IMPORTANCE_LOW
+                    NotificationManager.IMPORTANCE_MIN
                 )
             )
             Notification.Builder(this, CHANNEL_ID)
@@ -75,19 +89,33 @@ class CompanionService : Service() {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("מתאם חברותא פועל")
-            .setContentText("מסנכרן עם אוצריא במחשב")
+            .setContentTitle("מתאם חברותא")
+            .setContentText(text)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(open)
             .setOngoing(true)
+            .setShowWhen(false)
             .build()
+    }
+
+    private fun showStatus(text: String) {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, buildNotification(text))
     }
 
     companion object {
         private const val CHANNEL_ID = "companion"
         private const val NOTIFICATION_ID = 1
 
+        private var instance: CompanionService? = null
+        private var status = "פועל"
+
+        val isRunning: Boolean get() = instance != null
+
         fun start(context: Context) {
+            // שירות שכבר רץ אינו צריך הפעלה, וקריאה ל-startForegroundService
+            // מהרקע (כשהמתאם התעורר בלי מסך) עלולה להיחסם.
+            if (isRunning) return
             val intent = Intent(context, CompanionService::class.java)
             if (Build.VERSION.SDK_INT >= 26) {
                 context.startForegroundService(intent)
@@ -98,6 +126,12 @@ class CompanionService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, CompanionService::class.java))
+        }
+
+        /** משנה את שורת ההתראה: "מסנכרן" / "ממתין לאוצריא". */
+        fun setStatus(text: String) {
+            status = text
+            instance?.showStatus(text)
         }
     }
 }

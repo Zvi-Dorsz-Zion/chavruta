@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'companion_runner.dart';
+import 'native.dart';
 
 void main() {
   final runner = CompanionRunner();
@@ -12,7 +13,9 @@ void main() {
   runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
     runApp(CompanionApp(runner: runner));
-    unawaited(runner.start());
+    // ה-main רץ פעם אחת לכל תהליך — כשפותחים את המסך, או כשהשירות הקים
+    // את המנוע בעצמו (עלייה עם הטלפון, הקמה מחדש אחרי שהמערכת הרגה אותו).
+    unawaited(runner.boot());
   }, (error, stack) => runner.log('שגיאה לא מטופלת: $error\n$stack'));
 }
 
@@ -53,6 +56,9 @@ class StatusPage extends StatefulWidget {
 
 class _StatusPageState extends State<StatusPage> {
   Timer? _tick;
+  AppLifecycleListener? _lifecycle;
+  bool? _startOnBoot;
+  bool? _batteryExempt;
 
   @override
   void initState() {
@@ -61,11 +67,30 @@ class _StatusPageState extends State<StatusPage> {
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
+    // הפטור מחיסכון בסוללה ניתן בחלון של המערכת; חוזרים ממנו כשהמסך
+    // חוזר לחזית, ואז קוראים את המצב מחדש.
+    _lifecycle = AppLifecycleListener(onResume: _loadSettings);
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final boot = await Native.getStartOnBoot();
+      final exempt = await Native.isBatteryExempt();
+      if (!mounted) return;
+      setState(() {
+        _startOnBoot = boot;
+        _batteryExempt = exempt;
+      });
+    } catch (_) {
+      // בלי ההגדרות הכרטיס פשוט אינו מוצג.
+    }
   }
 
   @override
   void dispose() {
     _tick?.cancel();
+    _lifecycle?.dispose();
     super.dispose();
   }
 
@@ -83,6 +108,7 @@ class _StatusPageState extends State<StatusPage> {
             children: [
               _statusCard(context, runner),
               if (snap != null) _linkCard(context, snap),
+              _backgroundCard(context),
               _howToCard(context),
               _logCard(context, runner),
             ],
@@ -96,10 +122,12 @@ class _StatusPageState extends State<StatusPage> {
     final String title;
     if (runner.busy) {
       title = 'רגע…';
-    } else if (runner.running) {
-      title = 'המתאם פועל (127.0.0.1:${runner.port})';
     } else {
-      title = 'המתאם כבוי';
+      title = switch (runner.state) {
+        CompanionState.active => 'המתאם ער ומסנכרן (127.0.0.1:${runner.port})',
+        CompanionState.dormant => 'המתאם במצב שינה',
+        CompanionState.stopped => 'המתאם כבוי',
+      };
     }
     final snap = runner.snapshot();
     final engine = snap?['engine'];
@@ -111,6 +139,12 @@ class _StatusPageState extends State<StatusPage> {
           Text(
             'ההפעלה נכשלה: ${runner.startError}',
             style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        if (runner.state == CompanionState.dormant && !runner.busy)
+          Text(
+            'אוצריא לא סנכרנה דרכו ${dormantAfter.inMinutes} דקות, ולכן '
+            'הוא אינו משדר ואינו קולט. כשאוצריא תחפש אותו הוא יתעורר לבד '
+            'תוך שניות.',
           ),
         if (snap != null) ...[
           _row('שם המכשיר', '${snap['deviceName']}'),
@@ -190,6 +224,47 @@ class _StatusPageState extends State<StatusPage> {
           '(${snap['datagramsClockRejected']} בגלל פער שעונים).',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+      ],
+    );
+  }
+
+  Widget _backgroundCard(BuildContext context) {
+    final boot = _startOnBoot;
+    final exempt = _batteryExempt;
+    if (boot == null && exempt == null) return const SizedBox.shrink();
+    return _Section(
+      title: 'ריצה ברקע',
+      children: [
+        if (boot != null)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('עולה עם הטלפון'),
+            subtitle: const Text(
+              'אחרי הפעלה מחדש המתאם עולה ישר למצב שינה, ומתעורר כשאוצריא '
+              'מחפשת אותו. אין צורך לפתוח את המסך הזה.',
+            ),
+            value: boot,
+            onChanged: (value) async {
+              final actual = await Native.setStartOnBoot(value);
+              if (mounted) setState(() => _startOnBoot = actual);
+            },
+          ),
+        if (exempt == false) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'חיסכון הסוללה של הטלפון עלול לעצור את המתאם ברקע, או כשסוגרים '
+            'את האפליקציה. במצב שינה המתאם כמעט אינו צורך סוללה.',
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FilledButton.tonal(
+              onPressed: Native.requestBatteryExempt,
+              child: const Text('פטור מחיסכון בסוללה'),
+            ),
+          ),
+        ] else if (exempt == true)
+          const Text('פטור מחיסכון בסוללה: מאושר.'),
       ],
     );
   }
