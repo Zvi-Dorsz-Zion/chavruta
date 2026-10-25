@@ -45,21 +45,33 @@ class CompanionService : Service() {
             // המערכת אינה מתירה כאן שירות חזית (הקמה מחדש מהרקע בגרסאות
             // מסוימות). מתאם בלי שירות חזית היה מוקפא בכל מקרה, ולכן עדיף
             // לא לעלות בכלל מאשר לעלות ולשתוק.
+            DiagLog.write(this, "המערכת לא התירה שירות חזית, השירות לא עלה: $e")
             stopSelf()
             return
         }
+        DiagLog.write(this, "שירות החזית עלה")
         instance = this
         val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager?
         multicastLock = wifi?.createMulticastLock("chavruta")?.apply {
             setReferenceCounted(false)
             acquire()
         }
-        CompanionEngine.ensure(applicationContext)
+        CompanionEngine.ensure(applicationContext, "השירות")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // `intent == null` = המערכת הקימה את השירות מחדש אחרי שהתהליך נהרג.
+        if (intent == null) DiagLog.write(this, "השירות הוקם מחדש על ידי המערכת")
+        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        DiagLog.write(this, "האפליקציה הוחלקה מרשימת האחרונות; השירות ממשיך")
+        super.onTaskRemoved(rootIntent)
+    }
 
     override fun onDestroy() {
+        DiagLog.write(this, "השירות נעצר")
         if (instance === this) instance = null
         multicastLock?.let { if (it.isHeld) it.release() }
         multicastLock = null

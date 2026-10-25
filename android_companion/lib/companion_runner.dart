@@ -310,14 +310,39 @@ class CompanionRunner extends ChangeNotifier {
     }
   }
 
+  /// כמה שורות מסוף היומן הקודם מוצגות במסך כשהתהליך עולה.
+  static const int _previousLogLines = 150;
+
   Future<void> _openLogFile(Directory dir) async {
     if (_file != null) return;
     try {
       final file = File('${dir.path}${Platform.pathSeparator}companion.log');
+      await _showPreviousLog(file);
       final tooBig = await file.exists() && await file.length() > maxLogBytes;
       _file = file.openWrite(mode: tooBig ? FileMode.write : FileMode.append);
     } catch (_) {
       _file = null;
+    }
+  }
+
+  /// מה שקרה **לפני** שהתהליך הזה עלה — כולל הרישומים של צד האנדרואיד
+  /// (`DiagLog.kt`): נהרג, הוקם מחדש, הוחלק. בלי זה המסך מראה רק את הריצה
+  /// הנוכחית, ודווקא הרגע שבו המתאם נעלם אינו נראה בשום מקום.
+  Future<void> _showPreviousLog(File file) async {
+    try {
+      if (!await file.exists()) return;
+      final previous = await file.readAsLines();
+      if (previous.isEmpty) return;
+      final tail = previous.length > _previousLogLines
+          ? previous.sublist(previous.length - _previousLogLines)
+          : previous;
+      lines
+        ..add('— מכאן: סוף היומן עד העלייה הנוכחית —')
+        ..addAll(tail)
+        ..add('— מכאן: הריצה הנוכחית —');
+      notifyListeners();
+    } catch (_) {
+      // יומן שאינו קריא (למשל UTF-8 שנקטע) — מוותרים על ההיסטוריה.
     }
   }
 

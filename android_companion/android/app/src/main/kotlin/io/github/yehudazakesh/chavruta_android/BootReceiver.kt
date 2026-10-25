@@ -15,6 +15,11 @@ class BootReceiver : BroadcastReceiver() {
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                DiagLog.write(
+                    context,
+                    if (intent.action == Intent.ACTION_BOOT_COMPLETED) "הטלפון עלה"
+                    else "האפליקציה עודכנה"
+                )
                 if (Prefs.startOnBoot(context)) {
                     Prefs.setLaunchedAtBoot(true)
                     CompanionService.start(context)

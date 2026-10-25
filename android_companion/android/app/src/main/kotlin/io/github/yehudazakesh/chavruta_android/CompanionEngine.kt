@@ -22,9 +22,10 @@ object CompanionEngine {
     const val ID = "companion"
     private const val CHANNEL = "chavruta/native"
 
-    fun ensure(context: Context): FlutterEngine {
+    fun ensure(context: Context, by: String): FlutterEngine {
         FlutterEngineCache.getInstance().get(ID)?.let { return it }
         val app = context.applicationContext
+        DiagLog.write(app, "התהליך עלה; מנוע המתאם נוצר על ידי $by")
         val engine = FlutterEngine(app)
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->

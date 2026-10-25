@@ -13,7 +13,7 @@ import io.flutter.embedding.android.FlutterActivity
  */
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        CompanionEngine.ensure(applicationContext)
+        CompanionEngine.ensure(applicationContext, "המסך")
         super.onCreate(savedInstanceState)
         // בלי ההרשאה שירות החזית עדיין רץ, רק בלי התראה גלויה.
         if (Build.VERSION.SDK_INT >= 33 &&
