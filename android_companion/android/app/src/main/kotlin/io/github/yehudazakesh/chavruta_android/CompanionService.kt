@@ -103,7 +103,7 @@ class CompanionService : Service() {
         return builder
             .setContentTitle("מתאם חברותא")
             .setContentText(text)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_chavruta)
             .setContentIntent(open)
             .setOngoing(true)
             .setShowWhen(false)

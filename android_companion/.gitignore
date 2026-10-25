@@ -16,3 +16,10 @@ android/app/src/*
 android/app/src/main/*
 !android/app/src/main/AndroidManifest.xml
 !android/app/src/main/kotlin/
+# האייקונים שלנו. `flutter create` משלים את שאר המשאבים ואינו דורס אותם.
+!android/app/src/main/res/
+android/app/src/main/res/*
+!android/app/src/main/res/mipmap-*/
+!android/app/src/main/res/drawable/
+android/app/src/main/res/drawable/*
+!android/app/src/main/res/drawable/ic_stat_chavruta.xml
